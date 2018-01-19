@@ -25,6 +25,7 @@ Spree::Product.class_eval do
   #
   # This could also feasibly be overridden to sort the result in a
   # particular order, or restrict the number of items returned.
+  #
   def self.relation_filter
     where('spree_products.deleted_at' => nil)
       .where('spree_products.available_on IS NOT NULL')
@@ -75,6 +76,13 @@ Spree::Product.class_eval do
   #
   # Uses the Relations to find all the related items, and then filters
   # them using +Product.relation_filter+ to remove unwanted items.
+  #
+  # SELECT "spree_relations"."related_to_id" FROM "spree_relations"
+  # WHERE "spree_relations"."relatable_id" = 5
+  # AND "spree_relations"."relatable_type" = 'Spree::Product'
+  # AND "spree_relations"."relation_type_id" = 2
+  # GROUP BY "spree_relations"."related_to_id"
+  # ORDER BY  COUNT("spree_relations"."related_to_id") DESC
   def relations_for_relation_type(relation_type)
     # Find all the relations that belong to us for this RelationType, ordered by position
     related_ids = relations.where(relation_type_id: relation_type.id).order(:position).select(:related_to_id)
@@ -87,7 +95,8 @@ Spree::Product.class_eval do
 
     # make sure results are in same order as related_ids array  (position order)
     if result.present?
-      result.where(id: related_ids).order(:position)
+      result.group(:related_to_id)
+      result.where(id: related_ids).order('COUNT("spree_relations"."related_to_id")')
     end
 
     result
